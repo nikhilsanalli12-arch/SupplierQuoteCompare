@@ -1,273 +1,252 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeftRight, 
-  CheckCircle2, 
   Sparkles, 
-  TrendingDown, 
-  Clock, 
-  DollarSign, 
-  ShieldCheck, 
-  Award, 
-  Truck, 
-  Calendar,
-  X,
-  Plus,
-  AlertCircle
+  AlertCircle, 
+  Printer, 
+  Download, 
+  RefreshCw,
+  Layers,
+  Scale,
+  Building2,
+  FileText
 } from 'lucide-react';
+import { quotationService, comparisonService } from '../services/api';
+import QuotationSelectorBar from '../components/comparison/QuotationSelectorBar';
+import SupplierOverviewCards from '../components/comparison/SupplierOverviewCards';
+import ItemComparisonMatrix from '../components/comparison/ItemComparisonMatrix';
+import CommercialTermsMatrix from '../components/comparison/CommercialTermsMatrix';
+import BestValueInsightsCard from '../components/comparison/BestValueInsightsCard';
 
-export default function CompareView({ quotations, preselectedQuoteIds = [] }) {
-  // If preselected IDs exist, use them, otherwise pick the first 2-3 quotes
-  const [selectedIds, setSelectedIds] = useState(() => {
+export default function CompareView({ 
+  quotations: initialQuotes = [], 
+  preselectedQuoteIds = [] 
+}) {
+  const [allQuotations, setAllQuotations] = useState(initialQuotes);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [comparisonData, setComparisonData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Load latest quotations from API on mount
+  useEffect(() => {
+    const loadAllQuotes = async () => {
+      try {
+        const fetched = await quotationService.getAll();
+        if (fetched && fetched.length > 0) {
+          setAllQuotations(fetched);
+          
+          // Initialize selection if not set
+          if (selectedIds.length === 0) {
+            if (preselectedQuoteIds && preselectedQuoteIds.length >= 2) {
+              setSelectedIds(preselectedQuoteIds.slice(0, 4));
+            } else {
+              // Default to the first 2-3 quotes
+              const defaultIds = fetched.slice(0, 3).map((q) => q._id || q.id);
+              setSelectedIds(defaultIds);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch quotations for comparison:', err.message);
+      }
+    };
+
+    loadAllQuotes();
+  }, []);
+
+  // Update selection if preselectedQuoteIds prop changes
+  useEffect(() => {
     if (preselectedQuoteIds && preselectedQuoteIds.length >= 2) {
-      return preselectedQuoteIds.slice(0, 3);
+      setSelectedIds(preselectedQuoteIds.slice(0, 4));
     }
-    return quotations.slice(0, 3).map((q) => q.id);
-  });
+  }, [preselectedQuoteIds]);
 
-  const comparedQuotes = quotations.filter((q) => selectedIds.includes(q.id));
+  // Run comparison whenever selectedIds change
+  useEffect(() => {
+    const runComparison = async () => {
+      if (!selectedIds || selectedIds.length < 2) {
+        setComparisonData(null);
+        return;
+      }
 
-  // Determine best prices and lead times
-  const minTotalPrice = comparedQuotes.length > 0 ? Math.min(...comparedQuotes.map((q) => q.totalAmount)) : 0;
-  const maxTotalPrice = comparedQuotes.length > 0 ? Math.max(...comparedQuotes.map((q) => q.totalAmount)) : 0;
-  const potentialSavings = maxTotalPrice - minTotalPrice;
+      setLoading(true);
+      setError(null);
 
-  const minUnitPrice = comparedQuotes.length > 0 ? Math.min(...comparedQuotes.map((q) => q.unitPrice)) : 0;
-  const minLeadTime = comparedQuotes.length > 0 ? Math.min(...comparedQuotes.map((q) => q.leadTimeDays)) : 0;
+      try {
+        const data = await comparisonService.compare(selectedIds);
+        setComparisonData(data);
+      } catch (err) {
+        console.error('Error running comparison:', err.message);
+        setError(err.message || 'Failed to compare quotations');
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    runComparison();
+  }, [selectedIds]);
+
+  // Toggle quote in selection (add or remove)
   const handleToggleQuote = (id) => {
     if (selectedIds.includes(id)) {
-      if (selectedIds.length > 1) {
-        setSelectedIds(selectedIds.filter((item) => item !== id));
-      } else {
-        alert('Please keep at least 1 quotation to compare.');
-      }
+      setSelectedIds(selectedIds.filter((item) => item !== id));
     } else {
-      if (selectedIds.length >= 3) {
-        alert('You can compare up to 3 quotations side-by-side for optimal clarity.');
+      if (selectedIds.length >= 4) {
+        alert('You can compare a maximum of 4 quotations simultaneously.');
         return;
       }
       setSelectedIds([...selectedIds, id]);
     }
   };
 
+  const handleResetSelection = () => {
+    const defaultIds = allQuotations.slice(0, 2).map((q) => q._id || q.id);
+    setSelectedIds(defaultIds);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportCSV = () => {
+    if (!comparisonData || !comparisonData.quotations) return;
+
+    const quotes = comparisonData.quotations;
+    const headers = ['Parameter', ...quotes.map(q => `${q.supplierName} (${q.quotationNumber})`)];
+    const rows = [
+      headers.join(','),
+      ['Grand Total', ...quotes.map(q => q.summary?.grandTotal || 0)].join(','),
+      ['Lead Time (Days)', ...quotes.map(q => q.commercialTerms?.leadTimeDays || 0)].join(','),
+      ['Warranty (Months)', ...quotes.map(q => q.commercialTerms?.warrantyMonths || 0)].join(','),
+      ['Payment Terms', ...quotes.map(q => `"${q.commercialTerms?.paymentTerms || ''}"`)].join(',')
+    ];
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `quotation_comparison_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Top Header & Selector */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Quotation Comparison Matrix</h2>
-              <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200">
-                Multi-Parametric
-              </span>
-            </div>
-            <p className="text-xs text-slate-600">
-              Select 2 to 3 supplier quotations to evaluate commercial pricing, logistics & terms
-            </p>
+      {/* Top Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Quotation Comparison & Analysis
+            </h1>
+            <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">
+              Phase 4 Matrix
+            </span>
           </div>
-
-          {/* Savings Metric Indicator */}
-          {comparedQuotes.length >= 2 && potentialSavings > 0 && (
-            <div className="inline-flex items-center gap-3 bg-emerald-50 border border-emerald-200/80 px-4 py-2 rounded-xl text-emerald-900">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                <TrendingDown className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-emerald-700">Variance Savings Opportunity</p>
-                <p className="text-sm font-extrabold text-emerald-900">
-                  Save ${potentialSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-          )}
+          <p className="text-xs text-slate-500 mt-1">
+            Compare vendor proposals, mathematically normalise unit prices across packaging units, and evaluate commercial trade-offs.
+          </p>
         </div>
 
-        {/* Quote Selection Chips */}
-        <div>
-          <span className="text-xs font-bold text-slate-700 block mb-2">
-            Select Quotes to Compare (Max 3):
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {quotations.map((q) => {
-              const isSelected = selectedIds.includes(q.id);
-              return (
-                <button
-                  key={q.id}
-                  onClick={() => handleToggleQuote(q.id)}
-                  className={`text-xs px-3 py-1.5 rounded-xl font-medium transition flex items-center gap-2 border ${
-                    isSelected
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="font-mono font-bold">{q.id}</span>
-                  <span>-</span>
-                  <span className="font-semibold">{q.supplierName}</span>
-                  <span className="text-[11px] opacity-80">(${q.totalAmount.toLocaleString()})</span>
-                  {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex items-center gap-2">
+          {comparisonData && comparisonData.quotations?.length >= 2 && (
+            <>
+              <button
+                onClick={handleExportCSV}
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-2xs"
+                title="Export comparison to CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+
+              <button
+                onClick={handlePrint}
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-2xs"
+                title="Print Comparison Report"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Print Report</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Comparison Grid Matrix */}
-      {comparedQuotes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">
-          <AlertCircle className="w-8 h-8 mx-auto text-slate-400 mb-2" />
-          <p className="font-semibold text-slate-700">No quotations currently selected</p>
-          <p className="text-xs text-slate-500">Choose at least two quotations from the list above to view comparisons.</p>
+      {/* Quotation Selection Bar */}
+      <QuotationSelectorBar
+        availableQuotations={allQuotations}
+        selectedIds={selectedIds}
+        onToggleQuote={handleToggleQuote}
+        onResetSelection={handleResetSelection}
+      />
+
+      {/* Loading state */}
+      {loading && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 space-y-3 shadow-xs">
+          <RefreshCw className="w-8 h-8 mx-auto text-blue-600 animate-spin" />
+          <p className="font-bold text-slate-700 text-sm">Aligning quotation line items and normalising base units...</p>
+          <p className="text-xs text-slate-400">Performing mathematical unit conversions and commercial parameter analysis</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {comparedQuotes.map((quote) => {
-            const isLowestTotal = quote.totalAmount === minTotalPrice;
-            const isLowestUnit = quote.unitPrice === minUnitPrice;
-            const isFastest = quote.leadTimeDays === minLeadTime;
+      )}
 
-            return (
-              <div
-                key={quote.id}
-                className={`bg-white rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden relative shadow-xs ${
-                  isLowestTotal
-                    ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-md'
-                    : 'border-slate-200/90'
-                }`}
-              >
-                {/* Highlight Badge if Lowest Total */}
-                {isLowestTotal && (
-                  <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-bold py-1 px-4 text-center tracking-wide uppercase flex items-center justify-center gap-1.5 shadow-2xs">
-                    <Award className="w-3.5 h-3.5" />
-                    <span>Recommended Lowest Cost Option</span>
-                  </div>
-                )}
+      {/* Error state */}
+      {!loading && error && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center text-rose-800 space-y-2">
+          <AlertCircle className="w-8 h-8 mx-auto text-rose-600" />
+          <h4 className="font-bold text-sm">Comparison Error</h4>
+          <p className="text-xs">{error}</p>
+          <button
+            onClick={handleResetSelection}
+            className="mt-2 text-xs font-bold px-3 py-1.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition"
+          >
+            Reset Selection
+          </button>
+        </div>
+      )}
 
-                <div className="p-6 space-y-5">
-                  {/* Card Header */}
-                  <div>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                        {quote.id}
-                      </span>
-                      <span className="text-slate-500 font-medium">{quote.category}</span>
-                    </div>
+      {/* Insufficient selection state (< 2 quotes) */}
+      {!loading && !error && selectedIds.length < 2 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 space-y-3 shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+            <ArrowLeftRight className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">
+            Select At Least 2 Quotations to Compare
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Choose two or more supplier quotations from the selector above to generate side-by-side product normalisations, commercial terms, and multi-parametric value trade-offs.
+          </p>
+        </div>
+      )}
 
-                    <h3 className="font-extrabold text-base text-slate-900 mt-2">
-                      {quote.supplierName}
-                    </h3>
-                    <p className="text-xs text-slate-600 font-medium line-clamp-1" title={quote.product}>
-                      {quote.product}
-                    </p>
-                  </div>
+      {/* Main Comparison Modules (when 2 or more quotes are active) */}
+      {!loading && !error && comparisonData && comparisonData.quotations?.length >= 2 && (
+        <div className="space-y-6">
+          {/* 1. Best-Value Intelligence & Trade-Offs Banner */}
+          <BestValueInsightsCard
+            insights={comparisonData.insights}
+            quotations={comparisonData.quotations}
+          />
 
-                  {/* Big Total Price Box */}
-                  <div className={`p-4 rounded-xl text-center border ${
-                    isLowestTotal
-                      ? 'bg-blue-50/70 border-blue-200 text-blue-900'
-                      : 'bg-slate-50 border-slate-200 text-slate-900'
-                  }`}>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                      Total Commercial Value
-                    </span>
-                    <p className="text-3xl font-black mt-1">
-                      ${quote.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-xs text-slate-600 mt-1">
-                      ${quote.unitPrice.toFixed(2)} unit price × {quote.quantity.toLocaleString()} units
-                    </p>
-                  </div>
+          {/* 2. Side-by-Side Supplier Overview Cards */}
+          <SupplierOverviewCards
+            quotations={comparisonData.quotations}
+            insights={comparisonData.insights}
+          />
 
-                  {/* Key Highlights / Badges */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {isLowestUnit && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
-                        <DollarSign className="w-3 h-3" />
-                        Best Unit Price (${quote.unitPrice.toFixed(2)})
-                      </span>
-                    )}
-                    {isFastest && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
-                        <Clock className="w-3 h-3" />
-                        Fastest Delivery ({quote.leadTimeDays}d)
-                      </span>
-                    )}
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
-                      <ShieldCheck className="w-3 h-3 text-slate-500" />
-                      {quote.warrantyMonths || 12} mo warranty
-                    </span>
-                  </div>
+          {/* 3. Product Line Items & Unit Price Normalisation Table */}
+          <ItemComparisonMatrix
+            alignedItems={comparisonData.alignedItems || []}
+            quotations={comparisonData.quotations}
+          />
 
-                  {/* Structured Parameters Breakdown */}
-                  <div className="space-y-2.5 pt-3 border-t border-slate-100 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium">Quantity Requested</span>
-                      <span className="font-bold text-slate-800">{quote.quantity.toLocaleString()}</span>
-                    </div>
-
-                    <div className="flex justify-between py-1 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium">Unit Price</span>
-                      <span className="font-bold text-slate-800">${quote.unitPrice.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between py-1 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium">Freight & Logistics</span>
-                      <span className="font-bold text-slate-800">${quote.shippingCost.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between py-1 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium">Taxes & Duties</span>
-                      <span className="font-bold text-slate-800">${quote.tax.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between py-1 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium">Delivery Lead Time</span>
-                      <span className={`font-bold ${isFastest ? 'text-amber-600' : 'text-slate-800'}`}>
-                        {quote.leadTimeDays} Business Days
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between py-1 border-b border-slate-50">
-                      <span className="text-slate-500 font-medium">Payment Credit Terms</span>
-                      <span className="font-bold text-slate-800">{quote.paymentTerms}</span>
-                    </div>
-
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-500 font-medium">Quote Validity</span>
-                      <span className="font-medium text-slate-600">{quote.validUntil || '2026-12-01'}</span>
-                    </div>
-                  </div>
-
-                  {/* Notes snippet */}
-                  {quote.notes && (
-                    <div className="p-3 bg-slate-50 rounded-xl text-[11px] text-slate-600 border border-slate-100">
-                      <strong className="text-slate-800">Note:</strong> {quote.notes}
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer Action */}
-                <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                  <span className={`text-xs font-semibold ${
-                    quote.status === 'Approved' ? 'text-emerald-600' : 'text-amber-600'
-                  }`}>
-                    Status: {quote.status}
-                  </span>
-                  <button
-                    onClick={() => alert(`Quotation ${quote.id} from ${quote.supplierName} selected as winning bid!`)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs ${
-                      isLowestTotal
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                    }`}
-                  >
-                    Select Quote
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {/* 4. Commercial Terms & Pricing Breakdown Table */}
+          <CommercialTermsMatrix
+            quotations={comparisonData.quotations}
+            insights={comparisonData.insights}
+          />
         </div>
       )}
     </div>

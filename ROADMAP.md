@@ -35,15 +35,16 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 - [x] Filtering by supplier, date range, search, and status with KPI summary counters.
 - [x] Persistent MongoDB storage with Mongoose model, validation, and Express REST APIs.
 
-### Phase 4: Unit Price Normalisation & Comparison Engine (Next Phase)
-- [ ] Dedicated `unitConverter.js` utility engine.
-- [ ] Unit dimension compatibility matrix (prevents comparing kg with litres).
-- [ ] Automated normalisation calculation to standard base units (₹/kg, ₹/L, ₹/piece).
-- [ ] Side-by-side comparison matrix for 2 to 4 quotations.
-- [ ] Clear distinction between comparable and non-comparable items.
-- [ ] Visual indicators for lowest unit price and lowest total price.
+### Phase 4: Unit Price Normalisation & Comparison Engine (Completed)
+- [x] Dedicated `unitConverter.js` utility engine on frontend and backend.
+- [x] Unit dimension compatibility matrix (prevents comparing kg with litres).
+- [x] Automated normalisation calculation to standard base units (₹/kg, ₹/L, ₹/pcs).
+- [x] Side-by-side comparison matrix for 2 to 4 quotations.
+- [x] Clear distinction and warning alerts between comparable and non-comparable items.
+- [x] Visual indicators for lowest unit price and lowest total price.
+- [x] Dedicated REST API `/api/quotations/compare` and integrated UI workflow.
 
-### Phase 5: Trade-Off Analysis & Reports Module
+### Phase 5: Trade-Off Analysis & Reports Module (Next Phase)
 - [ ] Objective trade-off matrix (Total Cost vs Lead Time vs Warranty vs Payment Terms vs MOQ).
 - [ ] Factual pros and cons summary for each vendor bid.
 - [ ] Spend analytics charts by category and supplier turnaround trends.
@@ -61,6 +62,6 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 ---
 
 ## Progress Summary
-- **Current Active Step**: Phase 3 Complete (Quotation Management Module with Dynamic Line Items & Persistent Database Integration).
-- **Next Step**: Phase 4 (Unit Price Normalisation & Multi-Quote Comparison Engine).
+- **Current Active Step**: Phase 4 Complete (Quotation Comparison & Unit Price Normalisation Module).
+- **Next Step**: Phase 5 (Trade-Off Analysis & Reports Module).
 

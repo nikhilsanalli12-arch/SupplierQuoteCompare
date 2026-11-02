@@ -129,6 +129,15 @@ export const quotationService = {
 
 
 export const comparisonService = {
+  compare: async (quotationIds) => {
+    try {
+      const res = await apiClient.post('/quotations/compare', { quotationIds });
+      return res.data.data;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to compare quotations';
+      throw new Error(errorMsg);
+    }
+  },
   getComparisons: async () => {
     try {
       const res = await apiClient.get('/comparisons');

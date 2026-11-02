@@ -1,7 +1,7 @@
 import { Quotation } from '../models/Quotation.js';
 import { Supplier } from '../models/Supplier.js';
 import { calculateQuotationTotals } from '../utils/costCalculator.js';
-import { normalizeUnitPrice } from '../utils/unitConverter.js';
+import { normalizeUnitPrice, areUnitsCompatible, getUnitDimension } from '../utils/unitConverter.js';
 
 /**
  * @route   GET /api/quotations
@@ -38,7 +38,7 @@ export const getQuotations = async (req, res) => {
     if (sort === 'date_asc') sortOption = { quotationDate: 1 };
     if (sort === 'number') sortOption = { quotationNumber: 1 };
 
-    const quotations = await Quotation.find(query).sort(sortOption).populate('supplierId', 'name email phone category');
+    const quotations = await Quotation.find(query).sort(sortOption).populate('supplierId', 'name email phone category rating city country address paymentTerms');
 
     res.status(200).json({
       success: true,
@@ -343,6 +343,231 @@ export const deleteQuotation = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete quotation',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @route   GET/POST /api/quotations/compare
+ * @desc    Compare 2 to 4 quotations with unit price normalisation and multi-parametric trade-offs
+ */
+export const compareQuotations = async (req, res) => {
+  try {
+    let ids = [];
+    if (req.method === 'POST') {
+      ids = req.body.quotationIds || req.body.ids || [];
+    } else {
+      const qIds = req.query.ids || req.query.quotationIds || '';
+      ids = typeof qIds === 'string' ? qIds.split(',').map(s => s.trim()).filter(Boolean) : qIds;
+    }
+
+    if (!Array.isArray(ids) || ids.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide at least 2 quotation IDs to perform a comparison.'
+      });
+    }
+
+    if (ids.length > 4) {
+      return res.status(400).json({
+        success: false,
+        message: 'You can compare a maximum of 4 quotations simultaneously.'
+      });
+    }
+
+    // Fetch quotations from database
+    const quotations = await Quotation.find({ _id: { $in: ids } })
+      .populate('supplierId', 'name email phone category rating city country address paymentTerms');
+
+    if (quotations.length < 2) {
+      return res.status(404).json({
+        success: false,
+        message: `Found only ${quotations.length} matching quotations. At least 2 valid quotations are required.`
+      });
+    }
+
+    // Preserve order matching requested IDs
+    const orderedQuotations = ids
+      .map(id => quotations.find(q => q._id.toString() === id.toString()))
+      .filter(Boolean);
+
+    // 1. Grand totals & Cost variance
+    const grandTotals = orderedQuotations.map(q => q.summary?.grandTotal || 0);
+    const minGrandTotal = Math.min(...grandTotals);
+    const maxGrandTotal = Math.max(...grandTotals);
+    const costVariance = maxGrandTotal - minGrandTotal;
+    const lowestCostQuote = orderedQuotations.find(q => (q.summary?.grandTotal || 0) === minGrandTotal);
+
+    // 2. Lead times & Warranty
+    const leadTimes = orderedQuotations.map(q => q.commercialTerms?.leadTimeDays || 999);
+    const minLeadTime = Math.min(...leadTimes);
+    const fastestDeliveryQuote = orderedQuotations.find(q => (q.commercialTerms?.leadTimeDays || 999) === minLeadTime);
+
+    const warranties = orderedQuotations.map(q => q.commercialTerms?.warrantyMonths || 0);
+    const maxWarranty = Math.max(...warranties);
+    const longestWarrantyQuote = orderedQuotations.find(q => (q.commercialTerms?.warrantyMonths || 0) === maxWarranty);
+
+    // 3. Line Item Alignment & Unit Normalisation
+    const productMap = new Map();
+    orderedQuotations.forEach(q => {
+      (q.items || []).forEach(item => {
+        const normKey = (item.name || '').trim().toLowerCase();
+        if (!productMap.has(normKey)) {
+          productMap.set(normKey, {
+            displayName: item.name,
+            category: item.category,
+            entries: []
+          });
+        }
+
+        // Calculate normalised price
+        const normResult = normalizeUnitPrice(
+          item.unitPrice,
+          item.packageSize,
+          item.measurementUnit
+        );
+
+        productMap.get(normKey).entries.push({
+          quotationId: q._id,
+          quotationNumber: q.quotationNumber,
+          supplierName: q.supplierName,
+          item,
+          calculatedNormalisation: normResult
+        });
+      });
+    });
+
+    const alignedItems = [];
+    for (const [key, prod] of productMap.entries()) {
+      const unitsUsed = prod.entries.map(e => e.item.measurementUnit || 'pcs');
+      const uniqueUnits = [...new Set(unitsUsed)];
+
+      let areAllCompatible = true;
+      let incompatibleDetails = null;
+
+      if (uniqueUnits.length > 1) {
+        for (let i = 0; i < uniqueUnits.length - 1; i++) {
+          if (!areUnitsCompatible(uniqueUnits[i], uniqueUnits[i + 1])) {
+            areAllCompatible = false;
+            const dim1 = getUnitDimension(uniqueUnits[i])?.dimension || 'unknown';
+            const dim2 = getUnitDimension(uniqueUnits[i + 1])?.dimension || 'unknown';
+            incompatibleDetails = `Incompatible dimensions: "${uniqueUnits[i]}" (${dim1}) cannot be normalised against "${uniqueUnits[i + 1]}" (${dim2}).`;
+            break;
+          }
+        }
+      }
+
+      // Find lowest normalised unit price if compatible
+      let lowestUnitPrice = null;
+      let lowestUnitEntry = null;
+
+      if (areAllCompatible) {
+        prod.entries.forEach(entry => {
+          const np = entry.calculatedNormalisation?.normalizedPrice;
+          if (np !== undefined && np !== null) {
+            if (lowestUnitPrice === null || np < lowestUnitPrice) {
+              lowestUnitPrice = np;
+              lowestUnitEntry = entry;
+            }
+          }
+        });
+      }
+
+      alignedItems.push({
+        productName: prod.displayName,
+        category: prod.category,
+        isShared: prod.entries.length > 1,
+        areAllCompatible,
+        incompatibleDetails,
+        lowestNormalisedUnitPrice: lowestUnitPrice,
+        lowestUnitEntry: lowestUnitEntry ? {
+          quotationId: lowestUnitEntry.quotationId,
+          quotationNumber: lowestUnitEntry.quotationNumber,
+          supplierName: lowestUnitEntry.supplierName,
+          price: lowestUnitPrice,
+          baseUnit: lowestUnitEntry.calculatedNormalisation?.baseUnit
+        } : null,
+        entries: prod.entries
+      });
+    }
+
+    // 4. Multi-Parametric Trade-Off Insights
+    const tradeOffInsights = [];
+
+    if (costVariance > 0 && lowestCostQuote) {
+      tradeOffInsights.push({
+        type: 'cost',
+        badge: 'Lowest Commercial Total',
+        title: 'Price Variance Opportunity',
+        description: `${lowestCostQuote.supplierName} (${lowestCostQuote.quotationNumber}) offers the lowest total cost at ₹${minGrandTotal.toLocaleString()}, providing a potential savings opportunity of ₹${costVariance.toLocaleString()} over the highest bid.`
+      });
+    }
+
+    if (fastestDeliveryQuote && fastestDeliveryQuote._id.toString() !== lowestCostQuote?._id.toString()) {
+      const daysDiff = (lowestCostQuote?.commercialTerms?.leadTimeDays || 0) - minLeadTime;
+      tradeOffInsights.push({
+        type: 'delivery',
+        badge: 'Fastest Delivery',
+        title: 'Lead Time Advantage',
+        description: `${fastestDeliveryQuote.supplierName} delivers in ${minLeadTime} days (${daysDiff > 0 ? `${daysDiff} days faster than ${lowestCostQuote?.supplierName}` : 'fastest fulfillment'}). If delivery speed is critical, this may outweigh price differences.`
+      });
+    }
+
+    if (longestWarrantyQuote && maxWarranty > (lowestCostQuote?.commercialTerms?.warrantyMonths || 0)) {
+      tradeOffInsights.push({
+        type: 'warranty',
+        badge: 'Longest Warranty',
+        title: 'Extended Risk Protection',
+        description: `${longestWarrantyQuote.supplierName} provides ${maxWarranty} months warranty (vs ${lowestCostQuote?.commercialTerms?.warrantyMonths || 0} months from ${lowestCostQuote?.supplierName}), offering stronger operational risk coverage.`
+      });
+    }
+
+    tradeOffInsights.push({
+      type: 'decision_guidance',
+      badge: 'Procurement Notice',
+      title: 'Objective Procurement Decision',
+      description: 'The cheapest quotation is not necessarily the best overall value. Evaluate supplier rating, payment terms flexibility, warranty terms, and packaging efficiency before deciding.'
+    });
+
+    res.status(200).json({
+      success: true,
+      count: orderedQuotations.length,
+      data: {
+        quotations: orderedQuotations,
+        alignedItems,
+        insights: {
+          lowestCostQuote: {
+            id: lowestCostQuote?._id,
+            quotationNumber: lowestCostQuote?.quotationNumber,
+            supplierName: lowestCostQuote?.supplierName,
+            grandTotal: minGrandTotal
+          },
+          highestCostQuote: {
+            grandTotal: maxGrandTotal
+          },
+          costVariance,
+          fastestDeliveryQuote: {
+            id: fastestDeliveryQuote?._id,
+            quotationNumber: fastestDeliveryQuote?.quotationNumber,
+            supplierName: fastestDeliveryQuote?.supplierName,
+            leadTimeDays: minLeadTime
+          },
+          longestWarrantyQuote: {
+            id: longestWarrantyQuote?._id,
+            quotationNumber: longestWarrantyQuote?.quotationNumber,
+            supplierName: longestWarrantyQuote?.supplierName,
+            warrantyMonths: maxWarranty
+          },
+          tradeOffs: tradeOffInsights
+        }
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to perform quotation comparison',
       error: error.message
     });
   }
