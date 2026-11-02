@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { initialSuppliers, initialQuotations, initialComparisons } from '../data/mockData';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Environment-driven API Base URL (Render Production + Local Development)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+                     import.meta.env.VITE_API_BASE_URL || 
+                     (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

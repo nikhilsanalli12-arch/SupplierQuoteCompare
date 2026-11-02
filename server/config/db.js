@@ -25,9 +25,15 @@ export const connectDB = async () => {
 
     if (mongoUri && mongoUri.trim() !== '') {
       console.log('Connecting to external MongoDB Atlas...');
-      await mongoose.connect(mongoUri);
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 10000
+      });
       console.log(`MongoDB Atlas Connected: ${mongoose.connection.host}`);
     } else {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('⚠️ Notice: MONGODB_URI is not configured in production environment variables.');
+        console.warn('⚠️ For persistent cloud storage on Render, configure MONGODB_URI in Render dashboard.');
+      }
       console.log('No external MONGODB_URI found. Initializing local persistent MongoDB engine...');
       
       // Ensure persistent data directory exists for embedded Mongo

@@ -1,0 +1,56 @@
+# ================================================================
+# SupplierQuoteCompare — Render Infrastructure Blueprint
+# ================================================================
+# This file automates deployment of both Backend and Frontend on Render.
+# To deploy: Connect your GitHub repository to Render and click "New Blueprint Instance".
+
+services:
+  # -------------------------------------------------------------
+  # 1. Backend API Service (Node.js / Express / Mongoose)
+  # -------------------------------------------------------------
+  - type: web
+    name: supplierquotecompare-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false # Set in Render Dashboard with your Atlas cluster URL
+      - key: CLIENT_URL
+        fromService:
+          type: web
+          name: supplierquotecompare-ui
+          property: url
+
+  # -------------------------------------------------------------
+  # 2. Frontend Application (React 19 / Vite / Tailwind v4)
+  # -------------------------------------------------------------
+  - type: web
+    name: supplierquotecompare-ui
+    runtime: static
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      # SPA rewrite rule to support React Router HTML5 browser routing
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: supplierquotecompare-api
+          property: url
