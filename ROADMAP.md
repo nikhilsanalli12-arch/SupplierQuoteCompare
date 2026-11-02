@@ -44,24 +44,27 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 - [x] Visual indicators for lowest unit price and lowest total price.
 - [x] Dedicated REST API `/api/quotations/compare` and integrated UI workflow.
 
-### Phase 5: Trade-Off Analysis & Reports Module (Next Phase)
-- [ ] Objective trade-off matrix (Total Cost vs Lead Time vs Warranty vs Payment Terms vs MOQ).
-- [ ] Factual pros and cons summary for each vendor bid.
-- [ ] Spend analytics charts by category and supplier turnaround trends.
-- [ ] CSV and printable report export.
-- [ ] System settings (Currency selector: INR/USD/EUR/GBP, quotation approval thresholds).
+### Phase 5: Trade-Off Analysis & Reports Module (Completed)
+- [x] Objective trade-off matrix (Total Cost vs Lead Time vs Warranty vs Payment Terms vs MOQ).
+- [x] Factual pros and cons summary for each vendor bid.
+- [x] Multi-criteria configurable evaluation weighting (Price, Delivery Speed, Warranty, Terms) with preset profiles.
+- [x] Transparent 0-100 scoring engine with penalty handling for missing data.
+- [x] Spend analytics and cost structure breakdown (Product, Tax, Logistics, Discounts).
+- [x] Supplier performance and turnaround audit table.
+- [x] Executive audit-ready PDF report export using `jspdf` and `jspdf-autotable`.
+- [x] Dashboard integration with evaluated spend and benchmark metrics.
 
-### Phase 6: Full-Stack Express Backend & MongoDB Atlas
+### Phase 6: Full-Stack Express Backend & Public Deployment (Next Phase)
 - [x] Express.js server in `server/` with CORS and security headers.
 - [x] Mongoose schema for Suppliers and Quotations with complete validation.
 - [x] REST API routes matching frontend service contracts.
 - [x] Environment variable configuration (`.env` and `.env.example`).
 - [x] Local MongoDB persistent storage engine with MongoDB Atlas remote support.
-- [ ] Production deployment preparation on Render.
+- [ ] Production deployment preparation on Render for client and server.
 
 ---
 
 ## Progress Summary
-- **Current Active Step**: Phase 4 Complete (Quotation Comparison & Unit Price Normalisation Module).
-- **Next Step**: Phase 5 (Trade-Off Analysis & Reports Module).
+- **Current Active Step**: Phase 5 Complete (Trade-Off Analysis & Reports Module).
+- **Next Step**: Phase 6 (Render Cloud Deployment & Production Hardening).
 

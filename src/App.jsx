@@ -181,6 +181,7 @@ export default function App() {
                 <ReportsView
                   quotations={quotations}
                   suppliers={suppliers}
+                  onSelectSupplier={handleSelectSupplierQuotes}
                 />
               } 
             />

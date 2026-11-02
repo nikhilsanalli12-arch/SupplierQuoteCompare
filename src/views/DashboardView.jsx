@@ -15,6 +15,8 @@ import WelcomeBanner from '../components/WelcomeBanner';
 import MetricCard from '../components/MetricCard';
 import QuotationsTable from '../components/QuotationsTable';
 
+import { formatCurrency } from '../utils/formatters';
+
 export default function DashboardView({
   suppliers,
   quotations,
@@ -27,7 +29,11 @@ export default function DashboardView({
   searchQuery,
   setSearchQuery,
 }) {
-  const pendingQuotations = quotations.filter((q) => q.status === 'Pending');
+  const pendingQuotations = quotations.filter((q) => q.status === 'Pending' || q.status === 'Submitted');
+
+  // Compute total evaluated spend and savings
+  const totalEvaluatedSpend = quotations.reduce((acc, q) => acc + (q.summary?.grandTotal || q.totalAmount || 0), 0);
+  const activeSuppliersCount = suppliers.filter((s) => s.status !== 'Inactive').length;
 
   return (
     <div className="space-y-6">
@@ -48,7 +54,7 @@ export default function DashboardView({
           value={suppliers.length}
           change="+18%"
           isPositive={true}
-          subtitle="6 Active & Verified"
+          subtitle={`${activeSuppliersCount} Active & Verified`}
           icon={Building2}
           color="blue"
           onClick={() => onNavigate('suppliers')}
@@ -60,7 +66,7 @@ export default function DashboardView({
           value={quotations.length}
           change="+24%"
           isPositive={true}
-          subtitle="Submitted this quarter"
+          subtitle="Saved in database"
           icon={FileSpreadsheet}
           color="indigo"
           onClick={() => onNavigate('quotations')}
@@ -68,9 +74,9 @@ export default function DashboardView({
 
         {/* Pending Quotations */}
         <MetricCard
-          title="Pending Quotations"
+          title="Actionable Quotations"
           value={pendingQuotations.length}
-          change="3 Actionable"
+          change="Awaiting PO"
           isPositive={false}
           subtitle="Requires commercial review"
           icon={Clock}
@@ -78,16 +84,16 @@ export default function DashboardView({
           onClick={() => onNavigate('quotations')}
         />
 
-        {/* Recent Comparisons */}
+        {/* Evaluated Spend & Savings */}
         <MetricCard
-          title="Recent Comparisons"
-          value={comparisons.length}
-          change="+$10.4k"
+          title="Evaluated Pipeline"
+          value={formatCurrency(totalEvaluatedSpend)}
+          change="Multi-Bid"
           isPositive={true}
-          subtitle="Estimated total savings"
+          subtitle="Across active quotations"
           icon={ArrowLeftRight}
           color="emerald"
-          onClick={() => onNavigate('compare')}
+          onClick={() => onNavigate('reports')}
         />
       </div>
 
@@ -187,26 +193,26 @@ export default function DashboardView({
               <div>
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-slate-300">Fastest Turnaround</span>
-                  <span className="font-bold text-emerald-400">5-7 Days</span>
+                  <span className="font-bold text-emerald-400">7 Business Days</span>
                 </div>
-                <p className="text-[11px] text-slate-400">Optima Packaging & Global Tech lead fulfillment times.</p>
+                <p className="text-[11px] text-slate-400">Precision Dynamics & Global Tech lead current fulfillment.</p>
               </div>
 
               <div>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-300">Payment Term Optimization</span>
-                  <span className="font-bold text-blue-400">Net 45 / 60</span>
+                  <span className="text-slate-300">Payment Term Flexibility</span>
+                  <span className="font-bold text-blue-400">Up to Net 60</span>
                 </div>
-                <p className="text-[11px] text-slate-400">65% of vendors agree to Net 30 or higher terms.</p>
+                <p className="text-[11px] text-slate-400">Vanguard & Precision Dynamics offer extended credit terms.</p>
               </div>
 
               <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                 <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300 mb-1">
                   <CheckCircle className="w-4 h-4" />
-                  <span>Cost Savings Realized</span>
+                  <span>Variance Savings Opportunity</span>
                 </div>
-                <p className="text-2xl font-black text-white">$10,420.00</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Identified through multi-quote price negotiation</p>
+                <p className="text-2xl font-black text-white">{formatCurrency(4310)}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Identified through multi-quote price normalisation</p>
               </div>
             </div>
           </div>
@@ -215,7 +221,7 @@ export default function DashboardView({
             onClick={() => onNavigate('reports')}
             className="w-full mt-4 py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md shadow-blue-900/40"
           >
-            Open Analytics Report
+            Open Trade-Off & Evaluation Reports
           </button>
         </div>
       </div>
