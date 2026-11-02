@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { connectDB } from './config/db.js';
+import { connectDB, disconnectDB, getDatabaseInfo } from './config/db.js';
 import supplierRoutes from './routes/supplierRoutes.js';
 import quotationRoutes from './routes/quotationRoutes.js';
 
@@ -24,12 +24,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/quotations', quotationRoutes);
 
-
-// Health check
+// Health & Database Diagnostics check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     message: 'SupplierQuoteCompare API is operational',
+    database: getDatabaseInfo(),
     timestamp: new Date().toISOString()
   });
 });
@@ -53,11 +53,30 @@ app.use((err, req, res, next) => {
 });
 
 // Start server after connecting to database
+let serverInstance = null;
 const startServer = async () => {
   await connectDB();
-  app.listen(PORT, () => {
+  serverInstance = app.listen(PORT, () => {
     console.log(`SupplierQuoteCompare backend server running on http://localhost:${PORT}`);
   });
 };
+
+// Graceful shutdown handling
+const gracefulShutdown = async (signal) => {
+  console.log(`Received ${signal}. Shutting down server gracefully...`);
+  if (serverInstance) {
+    serverInstance.close(async () => {
+      console.log('HTTP server closed.');
+      await disconnectDB();
+      process.exit(0);
+    });
+  } else {
+    await disconnectDB();
+    process.exit(0);
+  }
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 startServer();

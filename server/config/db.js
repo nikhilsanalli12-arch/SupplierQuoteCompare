@@ -2,8 +2,22 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dbPath = path.resolve(__dirname, '..', 'data', 'db');
 
 let mongod = null;
+
+// Helper to check if a process ID is still actively running
+const isPidAlive = (pid) => {
+  try {
+    return process.kill(pid, 0);
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+};
 
 export const connectDB = async () => {
   try {
@@ -14,12 +28,26 @@ export const connectDB = async () => {
       await mongoose.connect(mongoUri);
       console.log(`MongoDB Atlas Connected: ${mongoose.connection.host}`);
     } else {
-      console.log('No external MONGODB_URI found. Initializing local MongoDB engine...');
+      console.log('No external MONGODB_URI found. Initializing local persistent MongoDB engine...');
       
       // Ensure persistent data directory exists for embedded Mongo
-      const dbPath = path.resolve(process.cwd(), 'data', 'db');
       if (!fs.existsSync(dbPath)) {
         fs.mkdirSync(dbPath, { recursive: true });
+      }
+
+      // Check for stale lock file from an abruptly terminated previous session
+      const lockFile = path.join(dbPath, 'mongod.lock');
+      if (fs.existsSync(lockFile)) {
+        try {
+          const lockContent = fs.readFileSync(lockFile, 'utf8').trim();
+          const lockPid = parseInt(lockContent, 10);
+          if (lockPid && !isPidAlive(lockPid)) {
+            console.log(`Clearing stale lock file from terminated PID ${lockPid}...`);
+            fs.unlinkSync(lockFile);
+          }
+        } catch (lockErr) {
+          console.warn('Notice while inspecting lock file:', lockErr.message);
+        }
       }
 
       mongod = await MongoMemoryServer.create({
@@ -49,6 +77,34 @@ export const connectDB = async () => {
       await seedInitialData();
     }
   }
+};
+
+export const disconnectDB = async () => {
+  try {
+    if (mongoose.connection.readyState) {
+      await mongoose.disconnect();
+    }
+    if (mongod) {
+      await mongod.stop();
+      mongod = null;
+    }
+    console.log('Database disconnected cleanly.');
+  } catch (err) {
+    console.error('Error during database disconnect:', err.message);
+  }
+};
+
+export const getDatabaseInfo = () => {
+  const mongoUri = process.env.MONGODB_URI;
+  const isAtlas = Boolean(mongoUri && mongoUri.trim() !== '');
+  return {
+    isAtlas,
+    databaseType: isAtlas ? 'MongoDB Atlas (Remote Cloud Cluster)' : 'Local Persistent MongoDB (WiredTiger Engine on Disk)',
+    storagePath: isAtlas ? 'Remote Cloud' : 'server/data/db',
+    connectionState: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+    host: isAtlas ? (mongoose.connection.host ? mongoose.connection.host.replace(/:.*/, '') : 'Remote Atlas') : 'localhost (127.0.0.1)',
+    databaseName: mongoose.connection.name || 'supplierquotecompare'
+  };
 };
 
 const seedInitialData = async () => {
