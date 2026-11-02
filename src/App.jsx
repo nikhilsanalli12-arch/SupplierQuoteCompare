@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -12,6 +12,7 @@ import NewQuotationModal from './components/NewQuotationModal';
 import NewSupplierModal from './components/NewSupplierModal';
 import QuotationDetailModal from './components/QuotationDetailModal';
 import { initialSuppliers, initialQuotations, initialComparisons } from './data/mockData';
+import { supplierService } from './services/api';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
@@ -42,23 +43,43 @@ export default function App() {
     }, 3500);
   };
 
+  // Sync suppliers from backend API on mount
+  const syncSuppliers = async () => {
+    try {
+      const data = await supplierService.getAll();
+      if (data && data.length > 0) {
+        setSuppliers(data);
+      }
+    } catch {
+      // Fallback already handled inside supplierService
+    }
+  };
+
+  useEffect(() => {
+    syncSuppliers();
+  }, []);
+
   // Add new quotation handler
   const handleAddQuotation = (newQuote) => {
     setQuotations((prev) => [newQuote, ...prev]);
-    // increment supplier active quote count
     setSuppliers((prev) =>
-      prev.map((s) => (s.id === newQuote.supplierId ? { ...s, activeQuotes: s.activeQuotes + 1 } : s))
+      prev.map((s) => (s.id === newQuote.supplierId || s._id === newQuote.supplierId ? { ...s, activeQuotes: s.activeQuotes + 1 } : s))
     );
     showToast(`Quotation ${newQuote.id} added successfully for ${newQuote.supplierName}!`);
   };
 
-  // Add new supplier handler
-  const handleAddSupplier = (newSupplier) => {
-    setSuppliers((prev) => [newSupplier, ...prev]);
-    showToast(`Supplier ${newSupplier.name} registered successfully!`);
+  // Add new supplier handler (from top Header/Dashboard fast modal)
+  const handleAddSupplier = async (newSupplier) => {
+    try {
+      const created = await supplierService.create(newSupplier);
+      await syncSuppliers();
+      showToast(`Supplier ${created.name} registered successfully!`);
+    } catch (err) {
+      showToast(`Registration Error: ${err.message}`);
+    }
   };
 
-  // Update quotation status handler (e.g. Approved, Rejected, Under Negotiation)
+  // Update quotation status handler
   const handleUpdateQuotationStatus = (quoteId, newStatus) => {
     setQuotations((prev) =>
       prev.map((q) => (q.id === quoteId ? { ...q, status: newStatus } : q))
@@ -126,8 +147,6 @@ export default function App() {
               path="/suppliers" 
               element={
                 <SuppliersView
-                  suppliers={suppliers}
-                  onNewSupplier={() => setIsNewSupplierOpen(true)}
                   onSelectSupplierQuotes={handleSelectSupplierQuotes}
                 />
               } 
@@ -173,7 +192,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* Interactive Modals */}
+      {/* Interactive Fast Modals */}
       <NewQuotationModal
         isOpen={isNewQuotationOpen}
         onClose={() => setIsNewQuotationOpen(false)}

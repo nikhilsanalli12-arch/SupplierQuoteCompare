@@ -17,14 +17,15 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 - [x] Reusable component hierarchy: Layout, MetricCard, WelcomeBanner, Table, Modal wrappers.
 
 ### Phase 2: Supplier Management Module (CRUD)
-- [ ] Supplier listing page with search, category filtering, and status badges.
-- [ ] Add Supplier modal/form with complete field validation (Email, Phone, City, Country, Address, Payment Terms).
-- [ ] Edit Supplier modal to update vendor parameters.
-- [ ] View Supplier detail view showing associated quotations history.
-- [ ] Safe deletion dialog (checks for dependent active quotations before deletion).
-- [ ] Export supplier directory.
+- [x] Supplier listing page with search, category filtering, and status badges.
+- [x] Add Supplier modal/form with complete field validation (Email, Phone, City, Country, Address, Payment Terms).
+- [x] Edit Supplier modal to update vendor parameters.
+- [x] View Supplier detail view showing associated quotations history and complete profile.
+- [x] Safe deletion dialog (checks for dependent active quotations before deletion).
+- [x] Table and Grid view toggles with responsive design.
+- [x] Express REST API backend and MongoDB Mongoose persistent database integration.
 
-### Phase 3: Quotation Management Module
+### Phase 3: Quotation Management Module (Next Phase)
 - [ ] Create Quotation form with dynamic multi-product line items.
 - [ ] Item-level calculations: Quantity × Unit Price, Discount %, Tax %, Line Total.
 - [ ] Quotation-level calculations: Subtotal + Delivery Charges + Additional Fees = Grand Total.
@@ -49,15 +50,16 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 - [ ] System settings (Currency selector: INR/USD/EUR/GBP, quotation approval thresholds).
 
 ### Phase 6: Full-Stack Express Backend & MongoDB Atlas
-- [ ] Express.js server in `server/` with CORS and security headers.
-- [ ] Mongoose schemas for Suppliers, Quotations, and Comparisons.
-- [ ] REST API routes matching frontend service contracts.
-- [ ] Environment variable configuration (`.env.example`).
-- [ ] MongoDB Atlas connection with fallback to mock data when database is disconnected.
-- [ ] Production build and public deployment preparation on Render.
+- [x] Express.js server in `server/` with CORS and security headers.
+- [x] Mongoose schema for Suppliers with complete validation.
+- [x] REST API routes matching frontend service contracts.
+- [x] Environment variable configuration (`.env` and `.env.example`).
+- [x] Local MongoDB persistent storage engine with MongoDB Atlas remote support.
+- [ ] Production deployment preparation on Render.
 
 ---
 
 ## Progress Summary
-- **Current Active Step**: Phase 1 (Enhancing Frontend Foundation, React Router Integration, Reusable Normalization Utility, and Empty States).
-- **Completed**: React + Vite, Tailwind CSS, Lucide icons, Initial interactive prototype, React Router & Axios installed, Master Specification & Roadmap saved.
+- **Current Active Step**: Phase 2 Complete (Supplier Management Module & MongoDB Mongoose Integration).
+- **Next Step**: Phase 3 (Quotation Management Module with Dynamic Line Items).
+
