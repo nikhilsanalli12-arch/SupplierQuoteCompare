@@ -3,6 +3,14 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import dns from 'node:dns';
+
+// Ensure reliable SRV DNS resolution on Windows / residential ISP connections
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch {
+  // Ignore if custom DNS cannot be set
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,9 +34,10 @@ export const connectDB = async () => {
     if (mongoUri && mongoUri.trim() !== '') {
       console.log('Connecting to external MongoDB Atlas...');
       await mongoose.connect(mongoUri, {
+        dbName: 'SupplierQuoteDB',
         serverSelectionTimeoutMS: 10000
       });
-      console.log(`MongoDB Atlas Connected: ${mongoose.connection.host}`);
+      console.log(`MongoDB Atlas Connected: ${mongoose.connection.host} (Database: SupplierQuoteDB)`);
     } else {
       if (process.env.NODE_ENV === 'production') {
         console.warn('⚠️ Notice: MONGODB_URI is not configured in production environment variables.');
