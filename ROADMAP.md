@@ -25,16 +25,17 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 - [x] Table and Grid view toggles with responsive design.
 - [x] Express REST API backend and MongoDB Mongoose persistent database integration.
 
-### Phase 3: Quotation Management Module (Next Phase)
-- [ ] Create Quotation form with dynamic multi-product line items.
-- [ ] Item-level calculations: Quantity × Unit Price, Discount %, Tax %, Line Total.
-- [ ] Quotation-level calculations: Subtotal + Delivery Charges + Additional Fees = Grand Total.
-- [ ] Measurement unit dropdowns (`kg`, `g`, `L`, `ml`, `pcs`, `units`) and Package Size input.
-- [ ] Quotation detail view with commercial terms (Lead time, Warranty, Payment terms, MOQ).
-- [ ] Quotation status management (Pending, Approved, Under Negotiation, Rejected).
-- [ ] Filtering by vendor, date range, and status.
+### Phase 3: Quotation Management Module (Completed)
+- [x] Create Quotation form with dynamic multi-product line items.
+- [x] Item-level calculations: Quantity × Unit Price, Discount %, Tax %, Line Total.
+- [x] Quotation-level calculations: Subtotal + Delivery Charges + Additional Fees = Grand Total.
+- [x] Measurement unit dropdowns (`kg`, `g`, `L`, `ml`, `pcs`, `units`, `box`, `carton`) and Package Size input.
+- [x] Quotation detail view with commercial terms (Lead time, Warranty, Payment terms, MOQ, Notes).
+- [x] Quotation status management (Draft, Submitted, Accepted, Rejected).
+- [x] Filtering by supplier, date range, search, and status with KPI summary counters.
+- [x] Persistent MongoDB storage with Mongoose model, validation, and Express REST APIs.
 
-### Phase 4: Unit Price Normalisation & Comparison Engine
+### Phase 4: Unit Price Normalisation & Comparison Engine (Next Phase)
 - [ ] Dedicated `unitConverter.js` utility engine.
 - [ ] Unit dimension compatibility matrix (prevents comparing kg with litres).
 - [ ] Automated normalisation calculation to standard base units (₹/kg, ₹/L, ₹/piece).
@@ -51,7 +52,7 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 
 ### Phase 6: Full-Stack Express Backend & MongoDB Atlas
 - [x] Express.js server in `server/` with CORS and security headers.
-- [x] Mongoose schema for Suppliers with complete validation.
+- [x] Mongoose schema for Suppliers and Quotations with complete validation.
 - [x] REST API routes matching frontend service contracts.
 - [x] Environment variable configuration (`.env` and `.env.example`).
 - [x] Local MongoDB persistent storage engine with MongoDB Atlas remote support.
@@ -60,6 +61,6 @@ This document outlines the detailed roadmap for developing **SupplierQuoteCompar
 ---
 
 ## Progress Summary
-- **Current Active Step**: Phase 2 Complete (Supplier Management Module & MongoDB Mongoose Integration).
-- **Next Step**: Phase 3 (Quotation Management Module with Dynamic Line Items).
+- **Current Active Step**: Phase 3 Complete (Quotation Management Module with Dynamic Line Items & Persistent Database Integration).
+- **Next Step**: Phase 4 (Unit Price Normalisation & Multi-Quote Comparison Engine).
 

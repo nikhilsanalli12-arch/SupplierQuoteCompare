@@ -151,7 +151,141 @@ const seedInitialData = async () => {
       ]);
       console.log('Seeded 6 baseline suppliers successfully.');
     }
+
+    // Seed baseline quotations if collection is empty
+    const Quotation = mongoose.model('Quotation');
+    const quoteCount = await Quotation.countDocuments();
+    if (quoteCount === 0) {
+      console.log('Seeding initial baseline quotations into MongoDB...');
+      const allSuppliers = await Supplier.find();
+      const apex = allSuppliers.find(s => s.name.includes('Apex')) || allSuppliers[0];
+      const globalTech = allSuppliers.find(s => s.name.includes('Global')) || allSuppliers[1];
+      const vanguard = allSuppliers.find(s => s.name.includes('Vanguard')) || allSuppliers[2];
+
+      if (apex && globalTech) {
+        await Quotation.create([
+          {
+            quotationNumber: 'QT-2026-001',
+            supplierId: apex._id,
+            supplierName: apex.name,
+            quotationDate: new Date('2026-10-25'),
+            validUntil: new Date('2026-12-15'),
+            description: 'Hydraulic Actuators and Pressure Valve assembly for manufacturing line',
+            status: 'Submitted',
+            items: [
+              {
+                name: 'Hydraulic Actuators Series-X 500',
+                description: 'Industrial heavy-duty dual-action actuator',
+                category: 'Machinery',
+                quantity: 50,
+                packageSize: 1,
+                measurementUnit: 'pcs',
+                unitPrice: 28500,
+                discountPercent: 5,
+                discountAmount: 71250,
+                taxPercent: 18,
+                taxAmount: 243675,
+                grossSubtotal: 1425000,
+                netSubtotal: 1353750,
+                lineTotal: 1597425,
+                normalisedUnitPrice: 28500,
+                normalisedBaseUnit: 'pcs'
+              },
+              {
+                name: 'High Pressure Valve Seals Kit',
+                description: 'Reinforced elastomer replacement seals (Pack of 10)',
+                category: 'Machinery',
+                quantity: 20,
+                packageSize: 10,
+                measurementUnit: 'pcs',
+                unitPrice: 4200,
+                discountPercent: 0,
+                discountAmount: 0,
+                taxPercent: 18,
+                taxAmount: 15120,
+                grossSubtotal: 84000,
+                netSubtotal: 84000,
+                lineTotal: 99120,
+                normalisedUnitPrice: 420,
+                normalisedBaseUnit: 'pcs'
+              }
+            ],
+            commercialTerms: {
+              deliveryCharges: 15000,
+              additionalCharges: 5000,
+              leadTimeDays: 14,
+              warrantyMonths: 24,
+              paymentTerms: 'Net 30',
+              minOrderQuantity: 5,
+              notes: 'Includes expedited air freight handling and 2-year manufacturer warranty replacement.'
+            },
+            summary: {
+              grossSubtotal: 1509000,
+              totalDiscount: 71250,
+              netSubtotal: 1437750,
+              totalTax: 258795,
+              productSubtotal: 1696545,
+              deliveryCharges: 15000,
+              additionalCharges: 5000,
+              grandTotal: 1716545,
+              currency: 'INR'
+            }
+          },
+          {
+            quotationNumber: 'QT-2026-002',
+            supplierId: globalTech._id,
+            supplierName: globalTech.name,
+            quotationDate: new Date('2026-10-28'),
+            validUntil: new Date('2026-11-30'),
+            description: 'ARM Cortex M7 Microcontroller & Fiber Transceivers',
+            status: 'Accepted',
+            items: [
+              {
+                name: 'ARM Cortex M7 Microcontroller Boards',
+                description: 'Industrial IoT embedded controller boards',
+                category: 'Electronics',
+                quantity: 1200,
+                packageSize: 1,
+                measurementUnit: 'pcs',
+                unitPrice: 1550,
+                discountPercent: 8,
+                discountAmount: 148800,
+                taxPercent: 18,
+                taxAmount: 308016,
+                grossSubtotal: 1860000,
+                netSubtotal: 1711200,
+                lineTotal: 2019216,
+                normalisedUnitPrice: 1550,
+                normalisedBaseUnit: 'pcs'
+              }
+            ],
+            commercialTerms: {
+              deliveryCharges: 8500,
+              additionalCharges: 2500,
+              leadTimeDays: 7,
+              warrantyMonths: 12,
+              paymentTerms: 'Net 45',
+              minOrderQuantity: 100,
+              notes: 'Volume discount of 8% applied for orders above 1,000 units. RoHS compliant.'
+            },
+            summary: {
+              grossSubtotal: 1860000,
+              totalDiscount: 148800,
+              netSubtotal: 1711200,
+              totalTax: 308016,
+              productSubtotal: 2019216,
+              deliveryCharges: 8500,
+              additionalCharges: 2500,
+              grandTotal: 2030216,
+              currency: 'INR'
+            }
+          }
+        ]);
+        console.log('Seeded 2 baseline quotations successfully.');
+      }
+    }
   } catch (err) {
     console.error('Error during data seeding:', err.message);
   }
 };
+

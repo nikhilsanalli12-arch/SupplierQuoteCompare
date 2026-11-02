@@ -8,18 +8,18 @@ import QuotationsView from './views/QuotationsView';
 import CompareView from './views/CompareView';
 import ReportsView from './views/ReportsView';
 import SettingsView from './views/SettingsView';
-import NewQuotationModal from './components/NewQuotationModal';
-import NewSupplierModal from './components/NewSupplierModal';
-import QuotationDetailModal from './components/QuotationDetailModal';
+import QuotationFormModal from './components/quotations/QuotationFormModal';
+import QuotationDetailsModal from './components/quotations/QuotationDetailsModal';
+import SupplierFormModal from './components/suppliers/SupplierFormModal';
 import { initialSuppliers, initialQuotations, initialComparisons } from './data/mockData';
-import { supplierService } from './services/api';
+import { supplierService, quotationService } from './services/api';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
-  // Application Data States
+  // Application Data States (Synced with MongoDB)
   const [suppliers, setSuppliers] = useState(initialSuppliers);
   const [quotations, setQuotations] = useState(initialQuotations);
   const [comparisons, setComparisons] = useState(initialComparisons);
@@ -43,48 +43,55 @@ export default function App() {
     }, 3500);
   };
 
-  // Sync suppliers from backend API on mount
-  const syncSuppliers = async () => {
+  // Sync data from backend API
+  const syncData = async () => {
     try {
-      const data = await supplierService.getAll();
-      if (data && data.length > 0) {
-        setSuppliers(data);
-      }
+      const [sups, quotes] = await Promise.all([
+        supplierService.getAll(),
+        quotationService.getAll()
+      ]);
+      if (sups && sups.length > 0) setSuppliers(sups);
+      if (quotes && quotes.length > 0) setQuotations(quotes);
     } catch {
-      // Fallback already handled inside supplierService
+      // Fallbacks are handled inside services
     }
   };
 
   useEffect(() => {
-    syncSuppliers();
+    syncData();
   }, []);
 
   // Add new quotation handler
-  const handleAddQuotation = (newQuote) => {
-    setQuotations((prev) => [newQuote, ...prev]);
-    setSuppliers((prev) =>
-      prev.map((s) => (s.id === newQuote.supplierId || s._id === newQuote.supplierId ? { ...s, activeQuotes: s.activeQuotes + 1 } : s))
-    );
-    showToast(`Quotation ${newQuote.id} added successfully for ${newQuote.supplierName}!`);
+  const handleAddQuotation = async (newQuote) => {
+    try {
+      const created = await quotationService.create(newQuote);
+      await syncData();
+      showToast(`Quotation ${created.quotationNumber} saved to database!`);
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    }
   };
 
-  // Add new supplier handler (from top Header/Dashboard fast modal)
+  // Add new supplier handler
   const handleAddSupplier = async (newSupplier) => {
     try {
       const created = await supplierService.create(newSupplier);
-      await syncSuppliers();
+      await syncData();
       showToast(`Supplier ${created.name} registered successfully!`);
     } catch (err) {
-      showToast(`Registration Error: ${err.message}`);
+      showToast(`Error: ${err.message}`);
     }
   };
 
   // Update quotation status handler
-  const handleUpdateQuotationStatus = (quoteId, newStatus) => {
-    setQuotations((prev) =>
-      prev.map((q) => (q.id === quoteId ? { ...q, status: newStatus } : q))
-    );
-    showToast(`Quotation ${quoteId} status updated to "${newStatus}"!`);
+  const handleUpdateQuotationStatus = async (quoteId, newStatus) => {
+    try {
+      await quotationService.update(quoteId, { status: newStatus });
+      await syncData();
+      showToast(`Quotation status updated to "${newStatus}"!`);
+    } catch (err) {
+      showToast(`Error: ${err.message}`);
+    }
   };
 
   // Trigger compare from any view with specific quote IDs
@@ -101,7 +108,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const pendingCount = quotations.filter((q) => q.status === 'Pending').length;
+  const pendingCount = quotations.filter((q) => q.status === 'Submitted' || q.status === 'Pending').length;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex">
@@ -155,12 +162,7 @@ export default function App() {
               path="/quotations" 
               element={
                 <QuotationsView
-                  quotations={quotations}
-                  onNewQuotation={() => setIsNewQuotationOpen(true)}
-                  onViewQuotation={(quote) => setViewingQuotation(quote)}
                   onCompareQuotes={handleCompareQuotes}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
                 />
               } 
             />
@@ -192,26 +194,27 @@ export default function App() {
         </main>
       </div>
 
-      {/* Interactive Fast Modals */}
-      <NewQuotationModal
+      {/* Global Quotation Creation Modal (Multi-Line Items) */}
+      <QuotationFormModal
         isOpen={isNewQuotationOpen}
         onClose={() => setIsNewQuotationOpen(false)}
+        onSubmit={handleAddQuotation}
         suppliers={suppliers}
-        onAddQuotation={handleAddQuotation}
       />
 
-      <NewSupplierModal
+      {/* Global Supplier Creation Modal */}
+      <SupplierFormModal
         isOpen={isNewSupplierOpen}
         onClose={() => setIsNewSupplierOpen(false)}
-        onAddSupplier={handleAddSupplier}
+        onSubmit={handleAddSupplier}
       />
 
-      <QuotationDetailModal
+      {/* Global Quotation Details Modal */}
+      <QuotationDetailsModal
         quote={viewingQuotation}
         isOpen={!!viewingQuotation}
         onClose={() => setViewingQuotation(null)}
-        onUpdateStatus={handleUpdateQuotationStatus}
-        onCompare={(id) => handleCompareQuotes([id])}
+        onStatusChange={handleUpdateQuotationStatus}
       />
 
       {/* Global Toast Feedback */}

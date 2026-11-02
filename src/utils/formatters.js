@@ -2,17 +2,18 @@
  * Currency, Number, and Date Formatters
  */
 
-export function formatCurrency(amount, currency = 'USD') {
+export function formatCurrency(amount, currency = 'INR') {
   const val = Number(amount) || 0;
   
   const currencySymbols = {
-    USD: '$',
     INR: '₹',
+    USD: '$',
     EUR: '€',
     GBP: '£'
   };
 
-  const symbol = currencySymbols[currency] || '$';
+  const symbol = currencySymbols[currency] || '₹';
+
 
   return `${symbol}${val.toLocaleString(undefined, {
     minimumFractionDigits: 2,

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
 import supplierRoutes from './routes/supplierRoutes.js';
+import quotationRoutes from './routes/quotationRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/quotations', quotationRoutes);
+
 
 // Health check
 app.get('/api/health', (req, res) => {

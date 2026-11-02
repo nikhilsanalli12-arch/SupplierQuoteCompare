@@ -84,7 +84,8 @@ export const quotationService = {
     try {
       const res = await apiClient.get('/quotations', { params });
       return res.data.data || res.data;
-    } catch {
+    } catch (err) {
+      console.warn('API error fetching quotations, using fallback data:', err.message);
       return initialQuotations;
     }
   },
@@ -92,35 +93,40 @@ export const quotationService = {
     try {
       const res = await apiClient.get(`/quotations/${id}`);
       return res.data.data || res.data;
-    } catch {
-      return initialQuotations.find((q) => q.id === id) || null;
+    } catch (err) {
+      console.warn(`API error fetching quotation ${id}:`, err.message);
+      return initialQuotations.find((q) => q._id === id || q.id === id) || null;
     }
   },
   create: async (quotationData) => {
     try {
       const res = await apiClient.post('/quotations', quotationData);
       return res.data.data || res.data;
-    } catch {
-      return { id: `QT-${Date.now().toString().slice(-4)}`, ...quotationData };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to create quotation';
+      throw new Error(errorMsg);
     }
   },
   update: async (id, quotationData) => {
     try {
       const res = await apiClient.put(`/quotations/${id}`, quotationData);
       return res.data.data || res.data;
-    } catch {
-      return { id, ...quotationData };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to update quotation';
+      throw new Error(errorMsg);
     }
   },
   delete: async (id) => {
     try {
       const res = await apiClient.delete(`/quotations/${id}`);
       return res.data;
-    } catch {
-      return { success: true, message: `Quotation ${id} deleted` };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to delete quotation';
+      throw new Error(errorMsg);
     }
   }
 };
+
 
 export const comparisonService = {
   getComparisons: async () => {
