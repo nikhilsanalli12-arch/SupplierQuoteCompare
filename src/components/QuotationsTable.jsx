@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   ChevronRight
 } from 'lucide-react';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 export default function QuotationsTable({ 
   quotations = [], 
@@ -27,28 +28,63 @@ export default function QuotationsTable({
   const [sortField, setSortField] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
 
+  const getQuoteId = (item) => String(item?._id || item?.id || item?.quotationNumber || '');
+  const getDisplayId = (item) => String(item?.quotationNumber || item?.id || item?._id || '');
+
   // Filter logic
-  const filteredQuotes = quotations.filter((item) => {
-    const matchesStatus = statusFilter === 'All' || item.status.toLowerCase() === statusFilter.toLowerCase();
-    const query = searchQuery.toLowerCase();
+  const filteredQuotes = (quotations || []).filter((item) => {
+    if (!item) return false;
+    const itemStatus = String(item.status || 'Draft').toLowerCase();
+    const filter = statusFilter.toLowerCase();
+    const matchesStatus = filter === 'all' || 
+      itemStatus === filter ||
+      (filter === 'pending' && (itemStatus === 'submitted' || itemStatus === 'pending')) ||
+      (filter === 'approved' && (itemStatus === 'accepted' || itemStatus === 'approved'));
+
+    const query = (searchQuery || '').trim().toLowerCase();
+    if (!query) return matchesStatus;
+
+    const idStr = getDisplayId(item).toLowerCase();
+    const supStr = String(item.supplierName || item.supplierId?.name || '').toLowerCase();
+    const prodStr = String(item.product || item.items?.[0]?.name || item.description || '').toLowerCase();
+    const catStr = String(item.category || item.items?.[0]?.category || item.supplierId?.category || '').toLowerCase();
+
     const matchesSearch = 
-      item.id.toLowerCase().includes(query) ||
-      item.supplierName.toLowerCase().includes(query) ||
-      item.product.toLowerCase().includes(query) ||
-      item.category.toLowerCase().includes(query);
+      idStr.includes(query) ||
+      supStr.includes(query) ||
+      prodStr.includes(query) ||
+      catStr.includes(query);
 
     return matchesStatus && matchesSearch;
   });
 
   // Sort logic
   const sortedQuotes = [...filteredQuotes].sort((a, b) => {
+    if (sortField === 'totalAmount') {
+      const aVal = Number(a.totalAmount ?? a.summary?.grandTotal ?? a.grandTotal ?? 0);
+      const bVal = Number(b.totalAmount ?? b.summary?.grandTotal ?? b.grandTotal ?? 0);
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+
+    if (sortField === 'date' || sortField === 'quotationDate') {
+      const aDate = new Date(a.quotationDate || a.date || a.createdAt || 0).getTime();
+      const bDate = new Date(b.quotationDate || b.date || b.createdAt || 0).getTime();
+      return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+    }
+
     let aVal = a[sortField];
     let bVal = b[sortField];
 
-    if (sortField === 'totalAmount') {
-      aVal = Number(a.totalAmount);
-      bVal = Number(b.totalAmount);
+    if (sortField === 'id') {
+      aVal = getDisplayId(a);
+      bVal = getDisplayId(b);
+    } else if (sortField === 'supplierName') {
+      aVal = a.supplierName || a.supplierId?.name || '';
+      bVal = b.supplierName || b.supplierId?.name || '';
     }
+
+    aVal = String(aVal || '').toLowerCase();
+    bVal = String(bVal || '').toLowerCase();
 
     if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
@@ -64,10 +100,10 @@ export default function QuotationsTable({
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === displayQuotes.length) {
+    if (selectedIds.length === displayQuotes.length && displayQuotes.length > 0) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(displayQuotes.map((q) => q.id));
+      setSelectedIds(displayQuotes.map(getQuoteId));
     }
   };
 
@@ -82,6 +118,7 @@ export default function QuotationsTable({
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'Accepted':
       case 'Approved':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
@@ -89,6 +126,7 @@ export default function QuotationsTable({
             Approved
           </span>
         );
+      case 'Submitted':
       case 'Pending':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
@@ -103,6 +141,13 @@ export default function QuotationsTable({
             Under Negotiation
           </span>
         );
+      case 'Draft':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+            <Clock className="w-3.5 h-3.5 text-slate-500" />
+            Draft
+          </span>
+        );
       case 'Rejected':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
@@ -113,7 +158,7 @@ export default function QuotationsTable({
       default:
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-            {status}
+            {status || 'Unknown'}
           </span>
         );
     }
@@ -255,10 +300,24 @@ export default function QuotationsTable({
               </tr>
             ) : (
               displayQuotes.map((quote) => {
-                const isSelected = selectedIds.includes(quote.id);
+                const quoteId = getQuoteId(quote);
+                const displayId = getDisplayId(quote);
+                const isSelected = selectedIds.includes(quoteId);
+
+                const supplierName = quote.supplierName || quote.supplierId?.name || 'Unknown Supplier';
+                const category = quote.category || quote.items?.[0]?.category || quote.supplierId?.category || 'General';
+                const productName = quote.product || quote.items?.[0]?.name || quote.description || 'General Line Item';
+                const quantity = Number(quote.quantity ?? quote.items?.[0]?.quantity ?? 1);
+                const leadTimeDays = quote.leadTimeDays ?? quote.commercialTerms?.leadTimeDays ?? 7;
+                const totalAmount = Number(quote.totalAmount ?? quote.summary?.grandTotal ?? quote.grandTotal ?? 0);
+                const unitPrice = Number(quote.unitPrice ?? quote.items?.[0]?.unitPrice ?? (quantity > 0 ? totalAmount / quantity : 0));
+                const currency = quote.summary?.currency || quote.currency || 'INR';
+                const displayDate = quote.date ? formatDate(quote.date) : formatDate(quote.quotationDate || quote.createdAt);
+                const initials = (supplierName || 'SU').substring(0, 2).toUpperCase();
+
                 return (
                   <tr 
-                    key={quote.id} 
+                    key={quoteId || displayId} 
                     className={`hover:bg-blue-50/40 transition-colors ${
                       isSelected ? 'bg-blue-50/60' : ''
                     }`}
@@ -267,50 +326,50 @@ export default function QuotationsTable({
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => handleSelectToggle(quote.id)}
+                        onChange={() => handleSelectToggle(quoteId)}
                         className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 border-slate-300"
-                        aria-label={`Select quotation ${quote.id}`}
+                        aria-label={`Select quotation ${displayId}`}
                       />
                     </td>
                     <td className="py-3 px-4 font-mono font-semibold text-blue-600">
-                      {quote.id}
+                      {displayId}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-[10px] text-slate-700 shrink-0">
-                          {quote.supplierName.substring(0, 2).toUpperCase()}
+                          {initials}
                         </div>
                         <div>
                           <p className="font-semibold text-slate-900 leading-tight">
-                            {quote.supplierName}
+                            {supplierName}
                           </p>
                           <span className="text-[10px] text-slate-600">
-                            {quote.category}
+                            {category}
                           </span>
                         </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <p className="font-medium text-slate-800 line-clamp-1 max-w-xs" title={quote.product}>
-                        {quote.product}
+                      <p className="font-medium text-slate-800 line-clamp-1 max-w-xs" title={productName}>
+                        {productName}
                       </p>
                       <span className="text-[10px] text-slate-600">
-                        Qty: {quote.quantity.toLocaleString()} • Lead: {quote.leadTimeDays}d
+                        Qty: {quantity.toLocaleString()} • Lead: {leadTimeDays}d
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <p className="font-bold text-slate-900 text-sm">
-                        ${quote.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatCurrency(totalAmount, currency)}
                       </p>
                       <span className="text-[10px] text-slate-600">
-                        ${quote.unitPrice.toFixed(2)} / unit
+                        {formatCurrency(unitPrice, currency)} / unit
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">
                       {getStatusBadge(quote.status)}
                     </td>
                     <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                      {quote.date}
+                      {displayDate}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -322,7 +381,7 @@ export default function QuotationsTable({
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => onCompareQuotes && onCompareQuotes([quote.id])}
+                          onClick={() => onCompareQuotes && onCompareQuotes([quoteId])}
                           className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                           title="Compare this quote"
                         >

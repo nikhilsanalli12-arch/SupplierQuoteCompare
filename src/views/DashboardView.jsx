@@ -18,9 +18,9 @@ import QuotationsTable from '../components/QuotationsTable';
 import { formatCurrency } from '../utils/formatters';
 
 export default function DashboardView({
-  suppliers,
-  quotations,
-  comparisons,
+  suppliers = [],
+  quotations = [],
+  comparisons = [],
   onNavigate,
   onNewQuotation,
   onNewSupplier,
@@ -29,11 +29,15 @@ export default function DashboardView({
   searchQuery,
   setSearchQuery,
 }) {
-  const pendingQuotations = quotations.filter((q) => q.status === 'Pending' || q.status === 'Submitted');
+  const safeQuotations = Array.isArray(quotations) ? quotations : [];
+  const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
+  const safeComparisons = Array.isArray(comparisons) ? comparisons : [];
+
+  const pendingQuotations = safeQuotations.filter((q) => q && (q.status === 'Pending' || q.status === 'Submitted'));
 
   // Compute total evaluated spend and savings
-  const totalEvaluatedSpend = quotations.reduce((acc, q) => acc + (q.summary?.grandTotal || q.totalAmount || 0), 0);
-  const activeSuppliersCount = suppliers.filter((s) => s.status !== 'Inactive').length;
+  const totalEvaluatedSpend = safeQuotations.reduce((acc, q) => acc + (q?.summary?.grandTotal || q?.grandTotal || q?.totalAmount || 0), 0);
+  const activeSuppliersCount = safeSuppliers.filter((s) => s && s.status !== 'Inactive').length;
 
   return (
     <div className="space-y-6">
@@ -42,8 +46,8 @@ export default function DashboardView({
         onNewQuotationClick={onNewQuotation}
         onCompareClick={() => onNavigate('compare')}
         pendingCount={pendingQuotations.length}
-        totalQuotesCount={quotations.length}
-        suppliersCount={suppliers.length}
+        totalQuotesCount={safeQuotations.length}
+        suppliersCount={safeSuppliers.length}
       />
 
       {/* Metrics Row (4 Overview Cards required by prompt) */}
@@ -51,7 +55,7 @@ export default function DashboardView({
         {/* Total Suppliers */}
         <MetricCard
           title="Total Suppliers"
-          value={suppliers.length}
+          value={safeSuppliers.length}
           change="+18%"
           isPositive={true}
           subtitle={`${activeSuppliersCount} Active & Verified`}
@@ -63,7 +67,7 @@ export default function DashboardView({
         {/* Total Quotations */}
         <MetricCard
           title="Total Quotations"
-          value={quotations.length}
+          value={safeQuotations.length}
           change="+24%"
           isPositive={true}
           subtitle="Saved in database"
@@ -126,7 +130,7 @@ export default function DashboardView({
             </div>
 
             <div className="space-y-3">
-              {comparisons.slice(0, 3).map((comp) => (
+              {safeComparisons.slice(0, 3).map((comp) => (
                 <div
                   key={comp.id}
                   onClick={() => onNavigate('compare')}
@@ -228,7 +232,7 @@ export default function DashboardView({
 
       {/* Recent Quotations Table Component */}
       <QuotationsTable
-        quotations={quotations}
+        quotations={safeQuotations}
         onViewQuotation={onViewQuotation}
         onCompareQuotes={onCompareQuotes}
         searchQuery={searchQuery}

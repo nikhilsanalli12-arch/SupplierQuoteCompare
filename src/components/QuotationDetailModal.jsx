@@ -82,20 +82,20 @@ export default function QuotationDetailModal({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                 <p className="text-slate-600 text-[11px]">Quantity</p>
-                <p className="font-extrabold text-base text-slate-900 mt-1">{quote.quantity.toLocaleString()}</p>
+                <p className="font-extrabold text-base text-slate-900 mt-1">{(Number(quote.quantity ?? quote.items?.[0]?.quantity ?? 1)).toLocaleString()}</p>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                 <p className="text-slate-600 text-[11px]">Unit Price</p>
-                <p className="font-extrabold text-base text-slate-900 mt-1">${quote.unitPrice.toFixed(2)}</p>
+                <p className="font-extrabold text-base text-slate-900 mt-1">${(Number(quote.unitPrice ?? quote.items?.[0]?.unitPrice ?? 0)).toFixed(2)}</p>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                 <p className="text-slate-600 text-[11px]">Freight / Shipping</p>
-                <p className="font-extrabold text-base text-slate-900 mt-1">${quote.shippingCost.toFixed(2)}</p>
+                <p className="font-extrabold text-base text-slate-900 mt-1">${(Number(quote.shippingCost ?? quote.commercialTerms?.deliveryCharges ?? 0)).toFixed(2)}</p>
               </div>
               <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-blue-900">
                 <p className="text-blue-700 text-[11px] font-semibold">Total Cost</p>
                 <p className="font-extrabold text-base text-blue-700 mt-1">
-                  ${quote.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(Number(quote.totalAmount ?? quote.summary?.grandTotal ?? quote.grandTotal ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
