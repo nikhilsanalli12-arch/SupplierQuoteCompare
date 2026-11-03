@@ -1,6 +1,6 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { formatCurrency, formatDate } from './formatters';
+import { formatCurrency, formatDate } from './formatters.js';
 
 /**
  * Generates and downloads a clean, professional PDF comparison report.
@@ -70,16 +70,16 @@ export function exportComparisonPDF({
 
   const scoreTableRows = evaluatedQuotes.map((eq, idx) => [
     `#${idx + 1}`,
-    `${eq.supplierName}\n(${eq.quotationNumber})`,
+    `${eq.supplierName || 'Unknown'}\n(${eq.quotationNumber || eq.id || 'N/A'})`,
     formatCurrency(eq.grandTotal),
-    `${eq.leadTimeDays}d`,
-    `${eq.warrantyMonths}m`,
-    eq.paymentTerms,
-    `${eq.scores.price}`,
-    `${eq.scores.delivery}`,
-    `${eq.scores.warranty}`,
-    `${eq.scores.paymentTerms}`,
-    `${eq.scores.composite} / 100`
+    `${eq.leadTimeDays || 7}d`,
+    `${eq.warrantyMonths || 12}m`,
+    eq.paymentTerms || 'Net 30',
+    `${eq.scores?.price ?? 0}`,
+    `${eq.scores?.delivery ?? 0}`,
+    `${eq.scores?.warranty ?? 0}`,
+    `${eq.scores?.paymentTerms ?? 0}`,
+    `${eq.scores?.composite ?? 0} / 100`
   ]);
 
   autoTable(doc, {
@@ -206,7 +206,7 @@ export function exportComparisonPDF({
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
-    doc.text(`• ${eq.supplierName} (${eq.quotationNumber}) — Overall Score: ${eq.scores.composite}/100`, 45, currentY);
+    doc.text(`• ${eq.supplierName || 'Supplier'} (${eq.quotationNumber || eq.id || 'N/A'}) — Overall Score: ${eq.scores?.composite ?? 0}/100`, 45, currentY);
     currentY += 12;
 
     doc.setFont('helvetica', 'normal');
