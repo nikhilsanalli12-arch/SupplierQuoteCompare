@@ -33,7 +33,6 @@ services:
   - type: web
     name: supplierquotecompare-ui
     runtime: static
-    plan: free
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     headers:
