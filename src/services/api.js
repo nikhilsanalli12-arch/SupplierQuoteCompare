@@ -2,9 +2,25 @@ import axios from 'axios';
 import { initialSuppliers, initialQuotations, initialComparisons } from '../data/mockData';
 
 // Environment-driven API Base URL (Render Production + Local Development)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-                     import.meta.env.VITE_API_BASE_URL || 
-                     (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+// Resolves safely whether the environment variable provides a root host or a path ending in /api,
+// and strictly prevents duplicate /api/api occurrences.
+const getResolvedApiBaseUrl = () => {
+  const rawUrl = import.meta.env.VITE_API_URL || 
+                 import.meta.env.VITE_API_BASE_URL || 
+                 (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    return '/api';
+  }
+
+  const cleanUrl = rawUrl.trim().replace(/\/+$/, '');
+  if (cleanUrl.endsWith('/api')) {
+    return cleanUrl;
+  }
+  return `${cleanUrl}/api`;
+};
+
+const API_BASE_URL = getResolvedApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
